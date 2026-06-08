@@ -21,6 +21,7 @@ set(SOURCES
     src/ui/output_panel.cpp
     src/ui/tool_card.cpp
     src/ui/input_dialog.cpp
+    src/ui/compare_input_dialog.cpp
 )
 
 set(HEADERS
@@ -34,6 +35,7 @@ set(HEADERS
     src/ui/output_panel.h
     src/ui/tool_card.h
     src/ui/input_dialog.h
+    src/ui/compare_input_dialog.h
 )
 
 # ---- Executable ----
