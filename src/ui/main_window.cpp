@@ -14,6 +14,10 @@
 #include <QHBoxLayout>
 #include <QApplication>
 #include <QActionGroup>
+#include <QStandardPaths>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QDir>
 
 MainWindow::MainWindow(ToolRegistry *registry, ToolManager *manager, QWidget *parent)
     : QMainWindow(parent)
@@ -58,7 +62,7 @@ void MainWindow::setupUi()
         "<p style='font-size: 16px; color: #888;'>日常工具开发平台</p>"
         "<p style='color: #666; margin-top: 30px;'>"
         "从侧边栏选择一个工具开始使用<br/>"
-        "或将新工具添加到 <code>~/.config/tooldeck/tools/</code></p>"
+        "或通过 <b>文件 → 打开工具目录</b> 添加自定义工具</p>"
         "</div>"
     );
     welcomeLabel_->setAlignment(Qt::AlignCenter);
@@ -87,6 +91,12 @@ void MainWindow::setupMenuBar()
     QMenu *fileMenu = menuBar()->addMenu(tr("文件(&F)"));
     fileMenu->addAction(tr("刷新工具列表"), QKeySequence::Refresh, this, [this]() {
         registry_->reload();
+    });
+    fileMenu->addAction(tr("打开工具目录"), this, [this]() {
+        QString toolsDir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+                           + "/tooldeck/tools";
+        QDir().mkpath(toolsDir);
+        QDesktopServices::openUrl(QUrl::fromLocalFile(toolsDir));
     });
     fileMenu->addSeparator();
     fileMenu->addAction(tr("退出(&Q)"), QKeySequence::Quit, this, &QWidget::close);

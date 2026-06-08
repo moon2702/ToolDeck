@@ -1,825 +1,458 @@
-# ToolDeck 开发指南
+# ToolDeck 开发指南 — manifest.json 配置手册
 
-> 如何开发、添加各种类型的工具到 ToolDeck 平台
+> 本文档聚焦 **manifest.json 的编写**。工具脚本的编写规范请参考项目 `examples/` 中的实际工具。
 
 ---
 
 ## 目录
 
-1. [快速开始](#1-快速开始)
-2. [工具结构](#2-工具结构)
-3. [manifest.json 完整参考](#3-manifestjson-完整参考)
-4. [运行模式详解](#4-运行模式详解)
-5. [输出模式详解](#5-输出模式详解)
-6. [实战示例](#6-实战示例)
-   - [示例一：一次性命令行工具 (Bash)](#示例一一次性命令行工具-bash)
-   - [示例二：带参数的 Python 脚本](#示例二带参数的-python-脚本)
-   - [示例三：长时间运行的后台监控 (守护进程)](#示例三长时间运行的后台监控-守护进程)
-   - [示例四：C/C++ 编译型工具](#示例四cc-编译型工具)
-   - [示例五：定时周期任务](#示例五定时周期任务)
-   - [示例六：混合语言工具 (Bash 调用 Python)](#示例六混合语言工具-bash-调用-python)
-7. [分类与图标](#7-分类与图标)
-8. [调试技巧](#8-调试技巧)
-9. [最佳实践](#9-最佳实践)
+1. [最小可用的 manifest](#1-最小可用的-manifest)
+2. [字段速查表](#2-字段速查表)
+3. [必填字段](#3-必填字段)
+4. [运行与输出控制](#4-运行与输出控制)
+5. [参数输入: inputs + argTemplate](#5-参数输入-inputs--argtemplate)
+6. [参数输入: 弹窗行为规则](#6-参数输入-弹窗行为规则)
+7. [argTemplate 语法参考](#7-argtemplate-语法参考)
+8. [完整配置示例](#8-完整配置示例)
+9. [分类与图标速查](#9-分类与图标速查)
+10. [工具发现路径](#10-工具发现路径)
+11. [故障排查](#11-故障排查)
 
 ---
 
-## 1. 快速开始
+## 1. 最小可用的 manifest
 
-### 三步添加一个工具
+只需三个字段即可让工具出现在侧边栏并运行：
 
-```bash
-# 第一步：创建工具目录
-mkdir -p ~/.config/tooldeck/tools/my-tool
-
-# 第二步：编写 manifest.json
-cat > ~/.config/tooldeck/tools/my-tool/manifest.json << 'EOF'
+```json
 {
   "name": "my-tool",
   "displayName": "我的工具",
-  "description": "这是一个示例工具",
-  "category": "自定义",
   "command": "bash",
   "args": ["run.sh"]
 }
-EOF
-
-# 第三步：编写可执行脚本
-cat > ~/.config/tooldeck/tools/my-tool/run.sh << 'EOF'
-#!/bin/bash
-echo "Hello, ToolDeck!"
-date
-EOF
-chmod +x ~/.config/tooldeck/tools/my-tool/run.sh
 ```
 
-在 ToolDeck 中点击 **文件 → 刷新工具列表**，即可在侧边栏看到新工具。双击即可运行。
+**目录结构**：
+```
+~/.config/tooldeck/tools/my-tool/
+├── manifest.json     ← 这个文件
+└── run.sh            ← 可执行脚本 (chmod +x)
+```
+
+双击即可运行，不弹窗、不传参。
 
 ---
 
-## 2. 工具结构
+## 2. 字段速查表
 
-### 目录约定
-
-```
-~/.config/tooldeck/tools/
-├── <工具名>/                 # 每个工具一个子目录
-│   ├── manifest.json        # 工具描述文件（必需）
-│   └── ...                  # 可执行脚本/二进制（路径在 manifest 中指定）
-```
-
-### 工具发现机制
-
-- ToolDeck 启动时自动扫描 `~/.config/tooldeck/tools/` 下所有子目录
-- 找到 `manifest.json` 后解析并加载
-- 支持热重载：**文件 → 刷新工具列表** 无需重启
-- 项目 `examples/` 目录也会被扫描（开发调试用）
+| 字段 | 类型 | 必需 | 默认值 | 说明 |
+|------|:--:|:--:|--------|------|
+| `name` | string | ✅ | — | 唯一 ID，英文小写+连字符 |
+| `displayName` | string | ✅ | — | 界面显示名，支持中文 |
+| `command` | string | ✅ | — | 可执行程序或解释器路径 |
+| `args` | string[] | — | `[]` | 固定命令行参数 |
+| `description` | string | — | `""` | 鼠标悬停提示 |
+| `version` | string | — | `"1.0.0"` | 语义版本号 |
+| `category` | string | — | `"custom"` | 侧边栏分组名 |
+| `icon` | string | — | `"application-x-executable"` | Freedesktop 图标名 |
+| `workingDir` | string | — | `"."` | 工作目录（相对=相对于 manifest 目录） |
+| `runMode` | string | — | `"oneshot"` | `oneshot` / `daemon` |
+| `outputMode` | string | — | `"stream"` | `stream` / `result` / `status` |
+| `inputs` | object[] | — | `[]` | 参数输入定义（见第 5 节） |
+| `argTemplate` | string | — | `""` | 参数拼接模板（见第 7 节） |
 
 ---
 
-## 3. manifest.json 完整参考
+## 3. 必填字段
 
-### 所有字段一览
+### `name` — 工具唯一标识
 
-```json
-{
-  "name":        "tool-id",          // [必需] 唯一标识，建议用英文小写+连字符
-  "displayName": "显示名称",          // [必需] 界面上显示的名称
-  "description": "工具功能描述",      // [可选] 鼠标悬停提示
-  "version":     "1.0.0",           // [可选] 版本号，默认 "1.0.0"
-  "category":    "分类名",           // [可选] 分组，默认 "custom"
-  "icon":        "图标名",           // [可选] Freedesktop 图标名
-  "command":     "bash",            // [必需] 可执行程序或解释器
-  "args":        ["script.sh"],     // [可选] 命令行参数数组
-  "workingDir":  ".",               // [可选] 工作目录，默认 "."
-  "runMode":     "oneshot",         // [可选] oneshot | daemon | scheduled
-  "outputMode":  "stream",          // [可选] stream | result | status
-  "inputSchema": {}                 // [可选] 输入参数 JSON Schema
-}
+```
+规则: 英文小写 + 连字符, 与目录名一致
+✅ echo-demo  hello-world  file-hash  port-check
+❌ 网络监控    HelloWorld   tool 1
 ```
 
-### 字段详解
+### `displayName` — 界面显示名
 
-#### `name`（必需）
+```
+侧边栏、仪表盘卡片、输出 Tab 标签均使用此名称。
+支持中文、emoji、空格。
+```
 
-工具的唯一标识符。建议规则：
+### `command` — 执行入口
 
-| ✅ 推荐 | ❌ 避免 |
-|---------|---------|
-| `network-monitor` | `网络监控` |
-| `disk-cleaner` | `Disk Cleaner` |
-| `my-tool-v2` | `tool1` |
-
-> `name` 也是工具目录名，确保目录名与 manifest 中的 name 一致。
-
-#### `displayName`（必需）
-
-界面中显示的名称。支持中文。
-
-#### `command`（必需）
-
-执行入口。支持三种写法：
+三种写法，按需选择：
 
 ```json
-// 1. 解释器 + args（推荐，跨平台兼容）
+// 解释器模式（推荐）—— 脚本跨平台只需换解释器
 { "command": "bash",     "args": ["script.sh"] }
 { "command": "python3",  "args": ["main.py"] }
 { "command": "node",     "args": ["index.js"] }
 
-// 2. 绝对路径
-{ "command": "/usr/local/bin/my-binary" }
+// 绝对路径 —— 适用于系统安装的工具
+{ "command": "/usr/local/bin/my-tool" }
 
-// 3. 相对路径（相对于 manifest.json 所在目录）
+// 相对路径 —— 相对于 manifest.json 所在目录
 { "command": "./bin/compiled-tool" }
 ```
 
-#### `args`
-
-传递给 `command` 的参数数组。支持 **占位符**（规划中）：
-
-```json
-// 未来支持（目前直接传参）：
-{ "args": ["--verbose", "--output", "$OUTPUT_DIR"] }
-```
-
-#### `runMode`
-
-| 值 | 含义 | 适用场景 |
-|----|------|----------|
-| `"oneshot"` | 一次性运行，结束后自动回收 | 数据查询、文件处理、编译任务 |
-| `"daemon"` | 长时间运行的后台进程 | 系统监控、网络服务、文件监听 |
-| `"scheduled"` | 周期性定时执行（规划中） | 定时备份、定期检查 |
-
-默认值：`"oneshot"`
-
-#### `outputMode`
-
-| 值 | 含义 | 界面行为 |
-|----|------|----------|
-| `"stream"` | 实时流式输出 | 在输出面板中逐行显示 stdout |
-| `"result"` | 仅显示最终结果 | 运行结束后一次性显示全部输出 |
-| `"status"` | 仅显示状态 | 不显示输出内容，只显示成功/失败状态 |
-
-默认值：`"stream"`
-
-#### `category`
-
-侧边栏分组。内置建议分类：
-
-| 分类 | 中文名 | 适用工具 |
-|------|--------|----------|
-| `system` | 系统 | 系统信息、进程管理、服务控制 |
-| `network` | 网络 | 网络监控、流量分析、连接测试 |
-| `dev` | 开发 | 编译、测试、代码生成、Git 工具 |
-| `media` | 媒体 | 图片处理、音视频转换、截图 |
-| `custom` | 自定义 | 未分类的杂项工具 |
-
-也可以自定义任意分类名。
-
-#### `icon`
-
-使用 [Freedesktop Icon Naming Spec](https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html) 中的图标名：
-
-```json
-// 常用图标
-"utilities-terminal"    // 终端/命令行工具
-"utilities-system-monitor"  // 系统监控
-"network-wired"         // 网络工具
-"folder"                // 文件管理
-"applications-graphics" // 图形/媒体
-"text-x-script"         // 脚本
-"application-x-executable" // 可执行程序（默认）
-```
-
-> ToolDeck 使用 `QIcon::fromTheme()` 从系统图标主题加载。若图标不存在，优雅降级为默认图标。
+`args` 中的固定参数**始终拼接**到命令行。运行时通过 `inputs` 传入的参数通过 `argTemplate` 拼接（见第 5 节），最终命令行 = `args + argTemplate展开结果`。
 
 ---
 
-## 4. 运行模式详解
+## 4. 运行与输出控制
 
-### 4.1 Oneshot 模式（一次性任务）
+### `runMode` — 运行模式
 
-```
-用户点击运行 → QProcess 启动 → 实时输出 → 进程结束 → 显示退出码
-```
+| 值 | 生命周期 | 何时用 |
+|----|----------|--------|
+| `"oneshot"` | 启动 → 运行 → 结束 → 自动回收 | 数据查询、文件处理、编译构建 |
+| `"daemon"` | 启动 → 持续运行 → 用户手动停止 | 系统监控、文件监听、本地服务 |
 
-**生命周期：**
-```
-[空闲] → [启动中] → [运行中] → [已完成(0)] 或 [失败(!=0)]
-```
+daemon 工具需脚本内有死循环（`while true`）。停止方式：仪表盘「停止」按钮、**工具 → 停止全部工具**、关闭 ToolDeck。
 
-**适用工具：**
-- 数据查询脚本（查 IP、查天气）
-- 文件批处理（批量重命名、格式转换）
-- 编译构建（make、cmake）
-- 一次性检查（磁盘空间、端口占用）
+### `outputMode` — 输出显示
 
-### 4.2 Daemon 模式（守护进程）
-
-```
-用户点击运行 → QProcess 启动 → 持续运行 → 实时输出流 → 用户手动停止
-```
-
-**生命周期：**
-```
-[空闲] → [启动中] → [运行中] → [已停止]（用户操作）
-                              → [失败]（异常退出）
-```
-
-**适用工具：**
-- 系统资源监控（CPU、内存、网络流量）
-- 文件变更监听（inotify）
-- 日志实时查看（tail -f）
-- 本地服务（HTTP server、WebSocket）
-
-**停止方式：**
-- 仪表盘卡片点击「停止」
-- 菜单 **工具 → 停止全部工具**
-- 关闭 ToolDeck 窗口（自动终止所有 daemon）
-
-### 4.3 Scheduled 模式（定时任务）
-
-> ⚠️ 规划中，尚未实现。
-
-```
-用户配置 cron → 平台定时触发 → 每次作为 oneshot 执行 → 记录历史
-```
+| 值 | 行为 |
+|----|------|
+| `"stream"` | stdout 实时追加到输出面板（默认） |
+| `"result"` | 进程结束才显示全部输出 |
+| `"status"` | 不显示输出，仅仪表盘显示成功/失败 |
 
 ---
 
-## 5. 输出模式详解
+## 5. 参数输入: inputs + argTemplate
 
-### 5.1 Stream（流式输出）
+这是配置文件的**核心章节**。定义了用户如何给工具传参，以及 ToolDeck 如何生成命令行。
+
+### 5.1 工作流
 
 ```
-stdout: "Loading...\n"  → 实时追加到输出面板
-stdout: "Done.\n"       → 继续追加
-stderr: "Warning: ..."  → 也追加到输出面板
+点击「运行」
+  → ToolDeck 读取 inputs[]
+  → 若有 required 字段 → 弹出表单
+  → 用户填写
+  → 表单值通过 argTemplate 展开
+  → 最终命令行 = args + 展开结果
+  → QProcess 执行
 ```
 
-每个工具在输出面板中独占一个 Tab 页，支持：
-- 实时流式显示
-- 终端风格配色（深色背景）
-- 多工具并发输出（各自独立 Tab）
-- 超过 10000 行自动截断
+### 5.2 inputs 字段定义
 
-### 5.2 Result（最终结果）
+每个 input 是一个 JSON 对象：
 
-运行期间不显示输出，完成后一次性展示全部内容。适合输出简短的工具。
-
-### 5.3 Status（状态指示）
-
-完全不显示输出内容。仅在仪表盘卡片上通过颜色和状态文字反馈结果：
-- 🟢 已完成 (0)
-- 🔴 失败 (!=0)
-
-适合静默运行的检查类工具。
-
----
-
-## 6. 实战示例
-
-### 示例一：一次性命令行工具 (Bash)
-
-**场景**：查看 Git 仓库状态汇总
-
-**目录结构：**
-```
-~/.config/tooldeck/tools/git-summary/
-├── manifest.json
-└── summary.sh
-```
-
-**manifest.json：**
 ```json
 {
-  "name": "git-summary",
-  "displayName": "Git 仓库概览",
-  "description": "扫描当前目录下的所有 Git 仓库，显示分支和状态",
-  "version": "1.0.0",
+  "name":        "filepath",      // 变量名，argTemplate 中用 {filepath} 引用
+  "type":        "file",          // 控件类型（见下表）
+  "label":       "文件路径",       // 表单中的标签
+  "description": "选择要处理的文件", // 提示文字/placeholder
+  "required":    true,             // 是否必填
+  "default":     ""                // 默认值
+}
+```
+
+按 type 不同，还有额外字段：
+
+```json
+// type = "choice" 需要 choices 数组
+{ "type": "choice", "choices": ["xxh64", "xxh32", "xxh128"], "default": "xxh64" }
+
+// type = "int" 可选 min / max
+{ "type": "int", "min": 1, "max": 65535, "default": "443" }
+
+// type = "number" 可选 min / max / decimals
+{ "type": "number", "min": 0.0, "max": 100.0, "decimals": 2 }
+```
+
+### 5.3 type 与 Qt 控件的对应
+
+| `type` | 生成的表单控件 | 示例效果 |
+|:------:|---------------|----------|
+| `text` | `QLineEdit` | `[________________]` |
+| `file` | `QLineEdit` + **「浏览」按钮** | `[/path/to/file] [浏览]` |
+| `dir` | `QLineEdit` + **「浏览」按钮** | `[/path/to/dir ] [浏览]` |
+| `choice` | `QComboBox`（下拉选择） | `[xxh64      ▾]` |
+| `bool` | `QCheckBox`（复选框） | `☑ 详细模式` |
+| `int` | `QSpinBox`（整数微调） | `[  443  🔼🔽]` |
+| `number` | `QDoubleSpinBox`（浮点微调） | `[ 0.00  🔼🔽]` |
+
+### 5.4 对比模式下的双栏表单
+
+在**对比模式**（菜单 模式 → 对比模式）下，点击工具有 inputs 时，弹出的是**双栏** `CompareInputDialog`。左右各一组相同的控件，一次运行生成两组参数、启动两个进程、左/右面板分别展示输出。
+
+普通模式下仍然弹出单栏 `InputDialog`。
+
+---
+
+## 6. 参数输入: 弹窗行为规则
+
+ToolDeck 根据 `inputs` 的 `required` 字段决定是否弹窗：
+
+| 条件 | 双击行为 |
+|------|----------|
+| `inputs` 为空或不存在 | **直接运行**，不传额外参数 |
+| `inputs` 全都有 `default` 值，且无 `required` | **直接运行**，使用默认值 |
+| 存在 `"required": true` 的字段 | **弹出表单**，用户必须填写 |
+
+**示例**：
+
+```json
+// 不弹窗 — 直接运行
+"inputs": []
+
+// 不弹窗 — 全部可选，用默认值运行
+"inputs": [
+  { "name": "detail", "type": "choice", "choices": ["简要","标准","详细"], "default": "标准" }
+]
+
+// 弹窗 — filepath 是必填的
+"inputs": [
+  { "name": "filepath", "type": "file", "label": "文件路径", "required": true },
+  { "name": "verbose",  "type": "bool", "label": "详细模式" }
+]
+```
+
+---
+
+## 7. argTemplate 语法参考
+
+### 7.1 基本语法
+
+`argTemplate` 是带占位符的字符串，占位符 `{name}` 对应 `inputs` 中的 `name`。
+
+```
+输入: argTemplate: "{host} {port} {timeout}"
+表单: host=github.com  port=443  timeout=3
+结果: github.com 443 3
+```
+
+### 7.2 修饰符语法
+
+`{name:修饰符}` — 根据 bool 值决定是否输出修饰符。
+
+| 语法 | true 时输出 | false 时输出 |
+|------|------------|-------------|
+| `{verbose:-v}` | `-v` | (空) |
+| `{verbose:--verbose}` | `--verbose` | (空) |
+| `{debug:+d}` | `+d` | (空) |
+
+**规则**：修饰符以 `-` / `--` 开头 = 仅 bool 为 true 时输出修饰符本身。修饰符以 `+` 开头 = 仅 bool 为 true 时输出修饰符。
+
+```json
+// 完整示例
+"argTemplate": "-a {algorithm} {verbose:-v} {filepath}"
+
+// algorithm=xxh64  verbose=false  filepath=/tmp/a.iso
+// → "-a xxh64 /tmp/a.iso"
+
+// algorithm=xxh128  verbose=true  filepath=/tmp/b.iso
+// → "-a xxh128 -v /tmp/b.iso"
+```
+
+### 7.3 无 argTemplate 时的行为
+
+若 `argTemplate` 为空，ToolDeck 将表单值按 `inputs` 定义顺序直接追加到命令行：
+
+```
+manifest.args = ["./bin/filehash"]
+inputs = [filepath, algorithm, verbose]
+表单: filepath=/tmp/a.iso  algorithm=xxh64  verbose=true
+
+→ 最终命令: ./bin/filehash /tmp/a.iso xxh64 true
+```
+
+---
+
+## 8. 完整配置示例
+
+以下示例均来自项目 `examples/` 目录。
+
+### 8.1 无参数工具 (hello-world)
+
+```json
+{
+  "name": "hello-world",
+  "displayName": "你好世界",
+  "description": "一个最小示例工具，演示 ToolDeck 平台的基本工具结构",
+  "version": "1.1.0",
   "category": "开发",
-  "icon": "folder-git",
+  "icon": "face-smile",
   "command": "bash",
-  "args": ["summary.sh"],
+  "args": ["hello.sh"],
   "runMode": "oneshot",
-  "outputMode": "stream"
+  "outputMode": "stream",
+  "inputs": [
+    { "name": "who",    "type": "text",   "label": "问候对象", "default": "" },
+    { "name": "format", "type": "choice", "label": "输出格式", "choices": ["简洁","标准","完整"], "default": "标准" }
+  ],
+  "argTemplate": "{who} {format}"
 }
 ```
 
-**summary.sh：**
-```bash
-#!/bin/bash
-# Git 仓库概览 — 扫描子目录中的所有 Git 仓库
-echo "=== Git 仓库概览 ==="
-echo "扫描目录: $(pwd)"
-echo ""
+双击行为：直接运行（全部可选）。传参：bash hello.sh "" "标准"
 
-found=0
-for dir in */; do
-    if [ -d "$dir/.git" ]; then
-        found=$((found + 1))
-        cd "$dir" || continue
-        branch=$(git branch --show-current 2>/dev/null || echo "??")
-        status=$(git status --short 2>/dev/null | wc -l)
-        echo "📂 $dir"
-        echo "   分支: $branch"
-        echo "   变更: $status 个文件"
-        echo ""
-        cd ..
-    fi
-done
+### 8.2 必填文件路径 (file-hash)
 
-if [ "$found" -eq 0 ]; then
-    echo "未发现 Git 仓库"
-else
-    echo "共发现 $found 个 Git 仓库"
-fi
-```
-
-```bash
-chmod +x ~/.config/tooldeck/tools/git-summary/summary.sh
-```
-
----
-
-### 示例二：带参数的 Python 脚本
-
-**场景**：HTTP 服务健康检查
-
-**目录结构：**
-```
-~/.config/tooldeck/tools/health-check/
-├── manifest.json
-└── check.py
-```
-
-**manifest.json：**
-```json
-{
-  "name": "health-check",
-  "displayName": "服务健康检查",
-  "description": "对指定的 URL 列表进行 HTTP 健康检查",
-  "version": "1.0.0",
-  "category": "网络",
-  "icon": "network-server",
-  "command": "python3",
-  "args": ["check.py", "https://github.com", "https://google.com"],
-  "runMode": "oneshot",
-  "outputMode": "stream"
-}
-```
-
-**check.py：**
-```python
-#!/usr/bin/env python3
-"""HTTP 健康检查工具"""
-import sys
-import urllib.request
-import urllib.error
-import time
-
-def check_url(url: str) -> dict:
-    """检查单个 URL 的可用性"""
-    start = time.time()
-    try:
-        req = urllib.request.Request(url, method='HEAD')
-        resp = urllib.request.urlopen(req, timeout=10)
-        elapsed = (time.time() - start) * 1000
-        return {
-            "url": url,
-            "status": resp.status,
-            "latency_ms": f"{elapsed:.0f}",
-            "ok": resp.status < 400
-        }
-    except urllib.error.HTTPError as e:
-        return {"url": url, "status": e.code, "latency_ms": "-", "ok": False}
-    except Exception as e:
-        return {"url": url, "status": "error", "latency_ms": "-", "ok": False, "error": str(e)}
-
-def main():
-    urls = sys.argv[1:] if len(sys.argv) > 1 else ["https://github.com"]
-    
-    print("=" * 60)
-    print("  HTTP 服务健康检查")
-    print("=" * 60)
-    print()
-    
-    for url in urls:
-        result = check_url(url)
-        icon = "✅" if result["ok"] else "❌"
-        print(f"{icon} {result['url']}")
-        print(f"   状态: {result['status']}  |  延迟: {result['latency_ms']}ms")
-        if "error" in result:
-            print(f"   错误: {result['error']}")
-        print()
-    
-    print("检查完成")
-
-if __name__ == "__main__":
-    main()
-```
-
-```bash
-chmod +x ~/.config/tooldeck/tools/health-check/check.py
-```
-
----
-
-### 示例三：长时间运行的后台监控 (守护进程)
-
-**场景**：实时网络流量监控
-
-**目录结构：**
-```
-~/.config/tooldeck/tools/net-monitor/
-├── manifest.json
-└── monitor.sh
-```
-
-**manifest.json：**
-```json
-{
-  "name": "net-monitor",
-  "displayName": "网络流量监控",
-  "description": "每秒输出网络接口的实时流量统计",
-  "version": "1.0.0",
-  "category": "网络",
-  "icon": "network-wired",
-  "command": "bash",
-  "args": ["monitor.sh"],
-  "runMode": "daemon",
-  "outputMode": "stream"
-}
-```
-
-**monitor.sh：**
-```bash
-#!/bin/bash
-# 网络流量监控 — daemon 模式，持续运行直到被停止
-
-INTERFACE="${1:-wlan0}"
-INTERVAL=2
-
-echo "🌐 网络流量监控 — $INTERFACE"
-echo "刷新间隔: ${INTERVAL}s"
-echo "按 Stop 按钮停止监控"
-echo "---"
-
-# 获取初始值
-rx1=$(cat /sys/class/net/$INTERFACE/statistics/rx_bytes 2>/dev/null)
-tx1=$(cat /sys/class/net/$INTERFACE/statistics/tx_bytes 2>/dev/null)
-
-if [ -z "$rx1" ]; then
-    echo "错误: 接口 $INTERFACE 不存在"
-    exit 1
-fi
-
-# 持续循环，直到被 kill
-while true; do
-    sleep "$INTERVAL"
-
-    rx2=$(cat /sys/class/net/$INTERFACE/statistics/rx_bytes)
-    tx2=$(cat /sys/class/net/$INTERFACE/statistics/tx_bytes)
-
-    rx_rate=$(( (rx2 - rx1) / INTERVAL ))
-    tx_rate=$(( (tx2 - tx1) / INTERVAL ))
-
-    # 格式化速率
-    rx_display=$(numfmt --to=iec --suffix=B/s $rx_rate 2>/dev/null || echo "${rx_rate}B/s")
-    tx_display=$(numfmt --to=iec --suffix=B/s $tx_rate 2>/dev/null || echo "${tx_rate}B/s")
-
-    printf "[%s] ⬇ %-12s  ⬆ %-12s\n" "$(date +%H:%M:%S)" "$rx_display" "$tx_display"
-
-    rx1=$rx2
-    tx1=$tx2
-done
-```
-
-```bash
-chmod +x ~/.config/tooldeck/tools/net-monitor/monitor.sh
-```
-
-> **关键点**：`runMode: "daemon"` 让平台知道这是一个持久进程，仪表盘会显示运行时长，"停止"按钮可用。
-
----
-
-### 示例四：C/C++ 编译型工具
-
-**场景**：高性能的文件哈希计算工具
-
-**目录结构：**
-```
-~/.config/tooldeck/tools/file-hash/
-├── manifest.json
-├── build.sh              # 编译脚本
-└── bin/
-    └── filehash          # 编译产物
-```
-
-**manifest.json：**
 ```json
 {
   "name": "file-hash",
   "displayName": "文件哈希计算",
-  "description": "使用 xxHash 算法快速计算文件哈希值",
+  "description": "使用 xxHash 算法快速计算文件哈希值，支持多种算法切换",
   "version": "1.0.0",
   "category": "系统",
   "icon": "accessories-calculator",
   "command": "./bin/filehash",
   "args": [],
   "runMode": "oneshot",
-  "outputMode": "stream"
+  "outputMode": "stream",
+  "inputs": [
+    { "name": "filepath",  "type": "file",   "label": "文件路径", "required": true },
+    { "name": "algorithm", "type": "choice", "label": "哈希算法", "choices": ["xxh64","xxh32","xxh128"], "default": "xxh64" },
+    { "name": "verbose",   "type": "bool",   "label": "详细模式", "description": "显示性能统计信息" }
+  ],
+  "argTemplate": "-a {algorithm} {verbose:-v} {filepath}"
 }
 ```
 
-**build.sh**（编译脚本，可选）：
-```bash
-#!/bin/bash
-gcc -O3 -o bin/filehash filehash.c -lxxhash
-echo "Build complete"
-```
+双击行为：弹出文件选择表单（filepath 必填）。
 
-**filehash.c**（核心逻辑）：
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <xxhash.h>
+### 8.3 必填主机+端口 (port-check)
 
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        printf("用法: filehash <文件路径>\n");
-        return 1;
-    }
-
-    FILE *f = fopen(argv[1], "rb");
-    if (!f) {
-        printf("无法打开文件: %s\n", argv[1]);
-        return 1;
-    }
-
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    rewind(f);
-
-    char *buf = malloc(size);
-    fread(buf, 1, size, f);
-    fclose(f);
-
-    XXH64_hash_t hash = XXH64(buf, size, 0);
-    printf("文件: %s\n", argv[1]);
-    printf("大小: %ld 字节\n", size);
-    printf("哈希: 0x%llx\n", (unsigned long long)hash);
-
-    free(buf);
-    return 0;
-}
-```
-
-> **关键点**：`command` 直接指向编译后的二进制文件，`runMode: "oneshot"` 执行完即退出。
-
----
-
-### 示例五：定时周期任务
-
-> ⚠️ Scheduled 模式规划中。当前可以用 daemon + sleep 循环模拟：
-
-```bash
-#!/bin/bash
-# 磁盘空间定时检查 — 每 5 分钟报告一次
-INTERVAL=300
-while true; do
-    echo "[$(date '+%H:%M:%S')] 磁盘空间检查"
-    df -h / /home | tail -n +2
-    echo "---"
-    sleep "$INTERVAL"
-done
-```
-
-配置 manifest：`"runMode": "daemon"`
-
----
-
-### 示例六：混合语言工具 (Bash 调用 Python)
-
-**场景**：Bash 收集环境信息 → Python 格式化输出
-
-**manifest.json：**
 ```json
 {
-  "name": "sys-report",
-  "displayName": "系统诊断报告",
-  "description": "收集系统信息并生成格式化报告",
+  "name": "port-check",
+  "displayName": "端口检测",
+  "description": "检测目标主机的指定端口是否开放",
   "version": "1.0.0",
+  "category": "网络",
+  "icon": "network-server",
+  "command": "bash",
+  "args": ["check.sh"],
+  "runMode": "oneshot",
+  "outputMode": "stream",
+  "inputs": [
+    { "name": "host",    "type": "text", "label": "目标主机", "required": true },
+    { "name": "port",    "type": "int",  "label": "端口号",   "required": true, "min": 1, "max": 65535, "default": "443" },
+    { "name": "timeout", "type": "int",  "label": "超时(秒)", "min": 1, "max": 30, "default": "3" }
+  ],
+  "argTemplate": "{host} {port} {timeout}"
+}
+```
+
+双击行为：弹出表单（host、port 均必填），host 是文本框，port/timeout 是数字微调控件。
+
+### 8.4 可选参数 (default-echo)
+
+```json
+{
+  "name": "echo-demo",
+  "displayName": "系统信息",
+  "description": "输出系统信息概览",
+  "version": "1.1.0",
   "category": "系统",
   "icon": "utilities-system-monitor",
   "command": "bash",
-  "args": ["collect.sh"],
+  "args": ["echo.sh"],
   "runMode": "oneshot",
-  "outputMode": "stream"
+  "outputMode": "stream",
+  "inputs": [
+    { "name": "detail", "type": "choice", "label": "信息详细度", "choices": ["简要","标准","详细"], "default": "标准" }
+  ],
+  "argTemplate": "{detail}"
 }
 ```
 
-**collect.sh**（收集原始数据，传给 Python）：
-```bash
-#!/bin/bash
-echo "---SYSINFO---"
-echo "hostname=$(hostname)"
-echo "kernel=$(uname -r)"
-echo "uptime=$(uptime -p)"
-echo "memory=$(free -h | grep Mem | awk '{print $3"/"$2}')"
-echo "disk=$(df -h / | tail -1 | awk '{print $3"/"$2 " ("$5")"}')"
-echo "---END---"
-```
-
-**format.py**（读取数据，格式化输出）：
-```python
-#!/usr/bin/env python3
-import subprocess, sys
-
-# 运行 collect.sh 捕获输出
-result = subprocess.run(["bash", "collect.sh"], capture_output=True, text=True)
-
-print("╔══════════════════════════════╗")
-print("║     系统诊断报告             ║")
-print("╚══════════════════════════════╝")
-print()
-
-for line in result.stdout.strip().split("\n"):
-    if "=" in line:
-        key, val = line.split("=", 1)
-        print(f"  {key:12s} : {val}")
-
-print()
-print("诊断完成 ✅")
-```
+双击行为：直接运行（仅一个可选字段）。传参：bash echo.sh "标准"
 
 ---
 
-## 7. 分类与图标
+## 9. 分类与图标速查
 
-### 内置分类推荐
+### 内置分类
 
-| 分类 ID | 显示名称 | 推荐图标 |
-|---------|----------|----------|
-| `system` | 系统 | `utilities-system-monitor` |
-| `network` | 网络 | `network-wired` |
-| `dev` | 开发 | `applications-development` |
-| `media` | 媒体 | `applications-graphics` |
-| `data` | 数据处理 | `x-office-spreadsheet` |
-| `security` | 安全 | `changes-prevent` |
-| `custom` | 自定义 | `application-x-executable` |
+| `category` | 侧边栏显示 | 适用 |
+|------------|-----------|------|
+| `system` | 系统 | 系统信息、进程管理、磁盘工具 |
+| `network` | 网络 | 网络检测、流量监控、DNS 查询 |
+| `dev` | 开发 | 编译、测试、Git、代码生成 |
+| `media` | 媒体 | 图片处理、音视频转换 |
+| `data` | 数据处理 | 格式转换、统计分析 |
+| `custom` | 自定义 | 未分类（默认值） |
 
-### 常用 Freedesktop 图标名
+分类名支持中文，写入 `category` 字段即可。
+
+### 常用图标
 
 ```
-# 操作类
-media-playback-start     文档编辑          folder
-document-open             system-run        application-exit
-
-# 设备类
-drive-harddisk            media-flash       network-wired
-printer                   camera-photo      input-keyboard
-
-# 状态类
-dialog-information        dialog-warning    dialog-error
-emblem-ok                 emblem-important  face-smile
-
-# 开发类
-applications-development  folder-git        text-x-script
-utilities-terminal        accessories-text-editor
+utilities-terminal         命令行工具
+utilities-system-monitor   系统监控
+network-wired              网络
+network-server             服务器/端口
+folder-git                 Git 仓库
+accessories-calculator     计算/哈希
+face-smile                 通用/示例
+document-edit              文档编辑
+folder                     文件夹
+media-flash                存储/闪存
 ```
 
-> 完整列表：`/usr/share/icons/` 或运行 `qt6-image-formats` 查看可用图标。
+> ToolDeck 使用 `QIcon::fromTheme()` 从系统主题加载图标，不存在时降级为默认图标。
 
 ---
 
-## 8. 调试技巧
+## 10. 工具发现路径
 
-### 8.1 查看 manifest 是否被加载
+ToolDeck 按以下优先级扫描工具：
 
-```bash
-# 确认目录结构无误
-ls -la ~/.config/tooldeck/tools/<工具名>/
-
-# 验证 manifest JSON 语法
-python3 -m json.tool ~/.config/tooldeck/tools/<工具名>/manifest.json
-```
-
-在 ToolDeck 中点击 **文件 → 刷新工具列表**，侧边栏应出现你的工具。
-
-### 8.2 模拟平台执行
-
-```bash
-# 进入工具目录，手动执行命令
-cd ~/.config/tooldeck/tools/<工具名>/
-bash script.sh        # 对 bash 工具
-python3 main.py       # 对 python 工具
-./bin/my-tool         # 对二进制工具
-```
-
-如果手动运行正常但平台中异常，检查：
-- 脚本是否有执行权限（`chmod +x`）
-- manifest 中 `command` 和 `args` 是否正确
-- `workingDir` 是否正确解析
-
-### 8.3 常见问题
-
-| 问题 | 可能原因 | 解决方法 |
-|------|----------|----------|
-| 侧边栏看不到工具 | manifest 无效或位置不对 | 检查目录是否在 `~/.config/tooldeck/tools/` 下，JSON 是否合规 |
-| 点击运行无反应 | `command` 路径错误 | 用绝对路径测试，或确保相对路径在 manifest 所在目录下 |
-| 输出面板无输出 | `outputMode` 设为 status | 改为 `"stream"` 查看输出 |
-| daemon 工具异常退出 | 脚本未进入死循环 | daemon 需要持续运行的逻辑（如 `while true`） |
-| 中文乱码 | 文件编码问题 | 确保脚本文件为 UTF-8 编码 |
-
-### 8.4 查看运行时日志
-
-ToolDeck 内部日志使用 `qDebug()`，启动时可设置环境变量查看：
-
-```bash
-QT_LOGGING_RULES="*.debug=true" ./build/tooldeck 2>&1 | grep -i tool
-```
-
----
-
-## 9. 最佳实践
-
-### 9.1 脚本规范
-
-```bash
-#!/bin/bash
-# ------------------------------------------------------------------
-# 工具名: 简短描述
-# 用法:   说明参数
-# 返回:   0=成功  非0=失败
-# ------------------------------------------------------------------
-set -euo pipefail    # 严格模式：遇错即停
-
-# ... 工具逻辑 ...
-
-exit 0               # 明确的退出码
-```
-
-### 9.2 输出规范
-
-- 使用清晰的标题分隔（`===`）
-- 关键信息前置（状态、数值）
-- 错误信息输出到 stderr（`>&2 echo "错误: ..."`）
-- 避免大量无用输出（daemon 模式尤其注意频率）
-
-### 9.3 命名规范
-
-| 规范 | 说明 |
+| 路径 | 用途 |
 |------|------|
-| `name` | 英文小写 + 连字符：`disk-cleaner`、`net-monitor` |
-| `displayName` | 简洁中文：`磁盘清理`、`网络监控` |
-| `category` | 使用建议分类名或自定义中文分类 |
-| 目录名 | 与 `name` 保持一致 |
+| `~/.config/tooldeck/tools/` | 用户安装的工具（持久存放） |
+| `<二进制目录>/../examples/` | 项目内置示例（开发调试） |
 
-### 9.4 安全性
+**目录约定**：
 
-- **敏感操作**（删除、格式化、系统配置修改）加确认逻辑
-- **网络工具**注意超时设置，避免无限等待
-- **daemon 工具**控制输出频率，避免日志爆炸
-- 对外部输入做校验（文件路径、URL 等）
-
-### 9.5 版本管理
-
-建议在 manifest 中维护版本号，方便追踪变更：
-
-```json
-{
-  "version": "1.0.0",
-  ...
-}
+```
+~/.config/tooldeck/tools/
+├── my-tool-1/            ← 目录名 = manifest 中的 name
+│   ├── manifest.json     ← 必需
+│   └── ...               ← 脚本/二进制等
+├── my-tool-2/
+│   ├── manifest.json
+│   └── ...
 ```
 
-工具目录自身可以用 Git 管理：
+刷新：**文件 → 刷新工具列表**（无需重启）。
+
+---
+
+## 11. 故障排查
+
+| 现象 | 检查 |
+|------|------|
+| 侧边栏没有我的工具 | `manifest.json` 是否在 `~/.config/tooldeck/tools/<name>/` 下？JSON 语法是否合法？ |
+| 点击运行无反应 | `command` 路径是否正确？脚本是否有执行权限？ |
+| 弹窗不出现 | 检查 `inputs` 中是否有 `"required": true` 的字段 |
+| 参数没传进去 | 检查 `argTemplate` 占位符 `{name}` 是否与 `inputs[].name` 一致 |
+| 输出乱码 | 脚本文件编码应为 UTF-8 |
+| daemon 立即退出 | 脚本需要死循环（`while true`），否则执行完就退出 |
+
+### 验证 manifest JSON
 
 ```bash
-cd ~/.config/tooldeck/tools/
-git init
-git add -A
-git commit -m "添加网络监控工具"
+python3 -m json.tool ~/.config/tooldeck/tools/<工具名>/manifest.json > /dev/null \
+  && echo "JSON 合法" || echo "JSON 错误"
+```
+
+### 手动模拟执行
+
+```bash
+cd ~/.config/tooldeck/tools/<工具名>/
+bash script.sh arg1 arg2           # 模拟 ToolDeck 执行
 ```
 
 ---
 
-## 附录：最小 manifest 模板
-
-```json
-{
-  "name": "my-tool",
-  "displayName": "我的工具",
-  "command": "bash",
-  "args": ["run.sh"]
-}
-```
-
-只有 `name`、`displayName`、`command` 是必需的。其余字段都有合理的默认值。
-
----
-
-> 📚 相关文档：架构设计见 `docs/architecture.md`（待生成）
->
-> 🤖 Generated with [Claude Code](https://claude.com/claude-code)
+> 📚 完整参考实现：`examples/` 目录下的 `hello-world`, `default-echo`, `file-hash`, `port-check`
