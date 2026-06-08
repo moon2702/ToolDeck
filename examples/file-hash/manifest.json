@@ -32,5 +32,5 @@
       "default": false
     }
   ],
-  "argTemplate": "-a {algorithm} {verbose:--verbose} {filepath}"
+  "argTemplate": "-a {algorithm} {verbose:-v} {filepath}"
 }

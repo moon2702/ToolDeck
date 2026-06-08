@@ -1,0 +1,41 @@
+{
+  "name": "port-check",
+  "displayName": "端口检测",
+  "description": "检测目标主机的指定端口是否开放，支持自定义超时",
+  "version": "1.0.0",
+  "category": "网络",
+  "icon": "network-server",
+  "command": "bash",
+  "args": ["check.sh"],
+  "runMode": "oneshot",
+  "outputMode": "stream",
+  "inputs": [
+    {
+      "name": "host",
+      "type": "text",
+      "label": "目标主机",
+      "description": "主机名或 IP 地址，如 github.com 或 192.168.1.1",
+      "required": true
+    },
+    {
+      "name": "port",
+      "type": "int",
+      "label": "端口号",
+      "description": "要检测的端口 (1–65535)",
+      "required": true,
+      "min": 1,
+      "max": 65535,
+      "default": "443"
+    },
+    {
+      "name": "timeout",
+      "type": "int",
+      "label": "超时(秒)",
+      "description": "连接超时等待时间",
+      "min": 1,
+      "max": 30,
+      "default": "3"
+    }
+  ],
+  "argTemplate": "{host} {port} {timeout}"
+}
