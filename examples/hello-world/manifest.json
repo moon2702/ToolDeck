@@ -1,0 +1,31 @@
+{
+  "name": "hello-world",
+  "displayName": "你好世界",
+  "description": "一个最小示例工具，演示 ToolDeck 平台的基本工具结构",
+  "version": "1.1.0",
+  "category": "开发",
+  "icon": "face-smile",
+  "command": "bash",
+  "args": ["hello.sh"],
+  "runMode": "oneshot",
+  "outputMode": "stream",
+  "inputs": [
+    {
+      "name": "who",
+      "type": "text",
+      "label": "问候对象",
+      "description": "要问候的人或名称，留空则使用当前用户名",
+      "required": false,
+      "default": ""
+    },
+    {
+      "name": "format",
+      "type": "choice",
+      "label": "输出格式",
+      "description": "选择输出风格",
+      "choices": ["简洁", "标准", "完整"],
+      "default": "标准"
+    }
+  ],
+  "argTemplate": "{who} {format}"
+}

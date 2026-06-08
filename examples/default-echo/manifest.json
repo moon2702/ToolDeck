@@ -1,0 +1,23 @@
+{
+  "name": "echo-demo",
+  "displayName": "系统信息",
+  "description": "输出系统信息概览，包括日期、用户、内核版本、运行时间、内存使用",
+  "version": "1.1.0",
+  "category": "系统",
+  "icon": "utilities-system-monitor",
+  "command": "bash",
+  "args": ["echo.sh"],
+  "runMode": "oneshot",
+  "outputMode": "stream",
+  "inputs": [
+    {
+      "name": "detail",
+      "type": "choice",
+      "label": "信息详细度",
+      "description": "选择输出信息的详细程度",
+      "choices": ["简要", "标准", "详细"],
+      "default": "标准"
+    }
+  ],
+  "argTemplate": "{detail}"
+}

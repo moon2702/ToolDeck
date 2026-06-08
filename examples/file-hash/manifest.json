@@ -1,0 +1,36 @@
+{
+  "name": "file-hash",
+  "displayName": "文件哈希计算",
+  "description": "使用 xxHash 算法快速计算文件哈希值，支持多种算法切换",
+  "version": "1.0.0",
+  "category": "系统",
+  "icon": "accessories-calculator",
+  "command": "./bin/filehash",
+  "args": [],
+  "runMode": "oneshot",
+  "outputMode": "stream",
+  "inputs": [
+    {
+      "name": "filepath",
+      "type": "file",
+      "label": "文件路径",
+      "description": "要计算哈希值的文件",
+      "required": true
+    },
+    {
+      "name": "algorithm",
+      "type": "choice",
+      "label": "哈希算法",
+      "choices": ["xxh64", "xxh32", "xxh128"],
+      "default": "xxh64"
+    },
+    {
+      "name": "verbose",
+      "type": "bool",
+      "label": "详细模式",
+      "description": "显示性能统计信息（耗时、吞吐量）",
+      "default": false
+    }
+  ],
+  "argTemplate": "-a {algorithm} {verbose:--verbose} {filepath}"
+}
