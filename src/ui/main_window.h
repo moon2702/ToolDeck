@@ -13,6 +13,7 @@ class ToolInstance;
 class SidebarWidget;
 class DashboardWidget;
 class OutputPanel;
+class QPlainTextEdit;
 
 /// Main application window.
 /// Layout: Sidebar (left) | Main area (dashboard + output, right)
@@ -48,9 +49,8 @@ private:
     // Wire a ToolInstance to output (tab mode)
     void wireInstanceToTab(ToolInstance *inst, const QString &toolName);
 
-    // Wire a ToolInstance to left/right compare panel
-    void wireInstanceToLeft(ToolInstance *inst);
-    void wireInstanceToRight(ToolInstance *inst);
+    // Wire a ToolInstance to a specific QPlainTextEdit (compare mode)
+    void wireInstanceToView(ToolInstance *inst, QPlainTextEdit *target);
 
     ToolRegistry *registry_;
     ToolManager *manager_;

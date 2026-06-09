@@ -12,12 +12,14 @@
 #include <QStatusBar>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QPlainTextEdit>
 #include <QApplication>
 #include <QActionGroup>
 #include <QStandardPaths>
 #include <QDesktopServices>
 #include <QUrl>
 #include <QDir>
+#include <QSet>
 
 MainWindow::MainWindow(ToolRegistry *registry, ToolManager *manager, QWidget *parent)
     : QMainWindow(parent)
@@ -214,7 +216,6 @@ void MainWindow::runCompare(const ToolManifest &manifest)
         return;
     }
 
-    outputPanel_->clearCompare();
     outputPanel_->enterCompareMode();
     mainStack_->setCurrentWidget(outputPanel_);
 
@@ -222,23 +223,28 @@ void MainWindow::runCompare(const ToolManifest &manifest)
     QStringList leftArgs = manifest.buildArgs(dlg.leftValues());
     QStringList rightArgs = manifest.buildArgs(dlg.rightValues());
 
-    // Build labels
+    // Create compare tab — auto-deduplicate label
+    QString tabLabel = outputPanel_->uniqueCompareTabLabel(manifest.displayName);
+
+    auto &view = outputPanel_->addCompareTab(tabLabel);
+
+    // Build labels for the panel headers
     QString leftLabel = QString("A: %1 | %2").arg(manifest.displayName).arg(leftArgs.join(' '));
     QString rightLabel = QString("B: %1 | %2").arg(manifest.displayName).arg(rightArgs.join(' '));
     if (leftArgs.isEmpty()) leftLabel = QString("A: %1 (默认)").arg(manifest.displayName);
     if (rightArgs.isEmpty()) rightLabel = QString("B: %1 (默认)").arg(manifest.displayName);
 
-    outputPanel_->setLeftLabel(leftLabel);
-    outputPanel_->setRightLabel(rightLabel);
+    view.leftLabel->setText(leftLabel);
+    view.rightLabel->setText(rightLabel);
 
     // Suppress default tab wiring for compare instances
     skipDefaultWiring_ = true;
 
     auto *instA = manager_->startTool(manifest, leftArgs);
-    if (instA) wireInstanceToLeft(instA);
+    if (instA) wireInstanceToView(instA, view.leftOutput);
 
     auto *instB = manager_->startTool(manifest, rightArgs);
-    if (instB) wireInstanceToRight(instB);
+    if (instB) wireInstanceToView(instB, view.rightOutput);
 
     skipDefaultWiring_ = false;
 
@@ -258,19 +264,10 @@ void MainWindow::wireInstanceToTab(ToolInstance *inst, const QString &toolName)
     outputPanel_->addToolTab(toolName);
 }
 
-void MainWindow::wireInstanceToLeft(ToolInstance *inst)
+void MainWindow::wireInstanceToView(ToolInstance *inst, QPlainTextEdit *target)
 {
-    connect(inst, &ToolInstance::outputReady, outputPanel_,
-            [this](const QString &text) {
-        outputPanel_->appendOutputLeft(text);
-    });
-}
-
-void MainWindow::wireInstanceToRight(ToolInstance *inst)
-{
-    connect(inst, &ToolInstance::outputReady, outputPanel_,
-            [this](const QString &text) {
-        outputPanel_->appendOutputRight(text);
+    connect(inst, &ToolInstance::outputReady, this, [target](const QString &text) {
+        OutputPanel::appendToView(target, text);
     });
 }
 
