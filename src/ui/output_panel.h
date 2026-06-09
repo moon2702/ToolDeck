@@ -5,13 +5,17 @@
 #include <QTabWidget>
 #include <QSplitter>
 #include <QPlainTextEdit>
+#include <QTextEdit>
+#include <QToolBar>
+#include <QStackedWidget>
 #include <QPushButton>
 #include <QLabel>
 #include <QHash>
 
-class QStackedWidget;
+#include "core/diff_engine.h"
 
-/// A single compare view: left/right split panels with labels.
+/// A single compare view: left/right split panels with labels,
+/// plus unified and side-by-side diff views.
 /// Exposed so callers can wire tool output directly to the correct panel.
 struct CompareView {
     QWidget *container = nullptr;
@@ -19,6 +23,19 @@ struct CompareView {
     QPlainTextEdit *rightOutput = nullptr;
     QLabel *leftLabel = nullptr;
     QLabel *rightLabel = nullptr;
+
+    // Diff support
+    QToolBar *toolbar = nullptr;
+    QStackedWidget *viewStack = nullptr;   // 0=raw, 1=unified diff, 2=side-by-side diff
+    QWidget *splitterWrapper = nullptr;    // holds the raw left/right splitter (page 0)
+    QTextEdit *diffView = nullptr;         // unified diff view (page 1)
+    QTextEdit *sideLeftView = nullptr;     // side-by-side left pane (page 2)
+    QTextEdit *sideRightView = nullptr;    // side-by-side right pane (page 2)
+    QLabel *diffSummary = nullptr;         // "+X −Y" statistics label
+    QAction *rawAction = nullptr;
+    QAction *unifiedAction = nullptr;      // "统一差异" button
+    QAction *sideAction = nullptr;         // "并排差异" button
+    QVector<DiffHunk> cachedHunks;  // avoid recomputation between unified/side views
 };
 
 /// Output panel with two modes controlled externally (via MainWindow mode selector):
@@ -49,6 +66,12 @@ public:
     /// Create a new compare tab with the given label.
     /// Returns a reference to the CompareView so callers can wire output directly.
     CompareView &addCompareTab(const QString &label);
+
+    /// Refresh the unified diff view (re-compute diff from raw outputs).
+    void refreshUnifiedDiff(CompareView &view);
+
+    /// Refresh the side-by-side diff view.
+    void refreshSideDiff(CompareView &view);
 
     /// Append text to a specific output widget (handles truncation).
     static void appendToView(QPlainTextEdit *target, const QString &text);

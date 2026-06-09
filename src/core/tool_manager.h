@@ -16,8 +16,11 @@ public:
     ~ToolManager() override;
 
     /// Start a tool by name. Returns the instance, or nullptr on failure.
-    /// @param extraArgs  additional arguments appended after manifest.args
-    ToolInstance *startTool(const ToolManifest &manifest, const QStringList &extraArgs = {});
+    /// @param extraArgs   additional arguments appended after manifest.args
+    /// @param instanceKey override storage key (default: manifest.name).
+    ///                    Use a distinct key to allow multiple concurrent instances of the same tool.
+    ToolInstance *startTool(const ToolManifest &manifest, const QStringList &extraArgs = {},
+                            const QString &instanceKey = {});
 
     /// Stop a running tool by name
     void stopTool(const QString &name);

@@ -1,9 +1,12 @@
 #include "output_panel.h"
+#include "core/diff_engine.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QStackedWidget>
+#include <QSplitter>
 #include <QFont>
+#include <QActionGroup>
 
 OutputPanel::OutputPanel(QWidget *parent)
     : QWidget(parent)
@@ -67,7 +70,7 @@ void OutputPanel::setupUi()
     emptyLabel_->setAlignment(Qt::AlignCenter);
     stack_->addWidget(emptyLabel_);     // index 1
 
-    stack_->setCurrentIndex(1);  // start with empty hint
+    stack_->setCurrentIndex(1);
     layout->addWidget(stack_);
 }
 
@@ -165,7 +168,56 @@ CompareView &OutputPanel::addCompareTab(const QString &label)
     vl->setContentsMargins(0, 0, 0, 0);
     vl->setSpacing(0);
 
-    auto *splitter = new QSplitter(Qt::Horizontal, view.container);
+    // ---- Toolbar ----
+    view.toolbar = new QToolBar(view.container);
+    view.toolbar->setMovable(false);
+    view.toolbar->setStyleSheet(
+        "QToolBar { background: #2d2d2d; border: none; border-bottom: 1px solid #3a3a3a;"
+        "  spacing: 2px; padding: 2px 4px; }"
+        "QToolBar QToolButton { color: #999; padding: 2px 12px; border-radius: 3px;"
+        "  font-size: 11px; border: 1px solid transparent; }"
+        "QToolBar QToolButton:checked { background: #444; color: #eee;"
+        "  border: 1px solid #555; }"
+        "QToolBar QToolButton:hover { background: #383838; }"
+    );
+
+    auto *actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+
+    view.rawAction = view.toolbar->addAction("▦ 原始");
+    view.rawAction->setCheckable(true);
+    view.rawAction->setChecked(true);
+    view.rawAction->setActionGroup(actionGroup);
+
+    view.unifiedAction = view.toolbar->addAction("≔ 统一差异");
+    view.unifiedAction->setCheckable(true);
+    view.unifiedAction->setActionGroup(actionGroup);
+
+    view.sideAction = view.toolbar->addAction("◫ 并排差异");
+    view.sideAction->setCheckable(true);
+    view.sideAction->setActionGroup(actionGroup);
+
+    // Diff summary label (right-aligned)
+    auto *spacer = new QWidget(view.container);
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    view.toolbar->addWidget(spacer);
+
+    view.diffSummary = new QLabel(view.container);
+    view.diffSummary->setStyleSheet("color: #888; font-size: 11px; padding: 0 6px;");
+    view.toolbar->addWidget(view.diffSummary);
+
+    vl->addWidget(view.toolbar);
+
+    // ---- Stacked: raw splitter / unified diff / side-by-side diff ----
+    view.viewStack = new QStackedWidget(view.container);
+
+    // Page 0 — raw splitter
+    view.splitterWrapper = new QWidget(view.container);
+    auto *swl = new QHBoxLayout(view.splitterWrapper);
+    swl->setContentsMargins(0, 0, 0, 0);
+    swl->setSpacing(0);
+
+    auto *splitter = new QSplitter(Qt::Horizontal, view.splitterWrapper);
     splitter->setHandleWidth(3);
 
     // Left panel
@@ -199,7 +251,70 @@ CompareView &OutputPanel::addCompareTab(const QString &label)
     splitter->addWidget(rc);
 
     splitter->setSizes({380, 380});
-    vl->addWidget(splitter);
+    swl->addWidget(splitter);
+    view.viewStack->addWidget(view.splitterWrapper);  // page 0
+
+    // Page 1 — unified diff view
+    auto *unifiedPage = new QWidget(view.container);
+    auto *ufl = new QVBoxLayout(unifiedPage);
+    ufl->setContentsMargins(0, 0, 0, 0);
+    ufl->setSpacing(0);
+
+    view.diffView = new QTextEdit(unifiedPage);
+    view.diffView->setReadOnly(true);
+    view.diffView->setFont(QFont("monospace", 11));
+    view.diffView->setStyleSheet(
+        "QTextEdit { background-color: #1e1e1e; border: none; }");
+    view.diffView->setPlaceholderText("点击「统一差异」以查看 A/B 输出差异");
+    ufl->addWidget(view.diffView);
+    view.viewStack->addWidget(unifiedPage);  // page 1
+
+    // Page 2 — side-by-side diff view
+    auto *sidePage = new QWidget(view.container);
+    auto *ssl = new QHBoxLayout(sidePage);
+    ssl->setContentsMargins(0, 0, 0, 0);
+    ssl->setSpacing(1);
+
+    view.sideLeftView = new QTextEdit(sidePage);
+    view.sideLeftView->setReadOnly(true);
+    view.sideLeftView->setFont(QFont("monospace", 11));
+    view.sideLeftView->setStyleSheet(
+        "QTextEdit { background-color: #1e1e1e; border: none; }");
+    view.sideLeftView->setPlaceholderText("左侧输出");
+    ssl->addWidget(view.sideLeftView);
+
+    view.sideRightView = new QTextEdit(sidePage);
+    view.sideRightView->setReadOnly(true);
+    view.sideRightView->setFont(QFont("monospace", 11));
+    view.sideRightView->setStyleSheet(
+        "QTextEdit { background-color: #1e1e1e; border: none; }");
+    view.sideRightView->setPlaceholderText("右侧输出");
+    ssl->addWidget(view.sideRightView);
+    view.viewStack->addWidget(sidePage);  // page 2
+
+    view.viewStack->setCurrentIndex(0);
+    vl->addWidget(view.viewStack, 1);
+
+    // ---- Toolbar actions ----
+    int viewIdx = compareViews_.size();
+
+    connect(view.rawAction, &QAction::triggered, this, [this, viewIdx]() {
+        if (viewIdx < compareViews_.size()) {
+            auto &v = compareViews_[viewIdx];
+            v.viewStack->setCurrentIndex(0);
+            v.diffSummary->clear();
+        }
+    });
+
+    connect(view.unifiedAction, &QAction::triggered, this, [this, viewIdx]() {
+        if (viewIdx < compareViews_.size())
+            refreshUnifiedDiff(compareViews_[viewIdx]);
+    });
+
+    connect(view.sideAction, &QAction::triggered, this, [this, viewIdx]() {
+        if (viewIdx < compareViews_.size())
+            refreshSideDiff(compareViews_[viewIdx]);
+    });
 
     compareViews_.append(view);
     int idx = compareTabWidget_->addTab(view.container, label);
@@ -207,6 +322,69 @@ CompareView &OutputPanel::addCompareTab(const QString &label)
 
     updateContentVisibility();
     return compareViews_.last();
+}
+
+void OutputPanel::refreshUnifiedDiff(CompareView &view)
+{
+    QString leftText  = view.leftOutput->toPlainText();
+    QString rightText = view.rightOutput->toPlainText();
+
+    // Compute diff and cache for side-by-side switching
+    view.cachedHunks = DiffEngine::compute(leftText, rightText);
+    const auto &hunks = view.cachedHunks;
+
+    if (hunks.isEmpty() && !leftText.isEmpty() && !rightText.isEmpty()) {
+        view.diffView->setHtml(
+            "<html><body style='background:#1e1e1e; color:#888; font-family:monospace; "
+            "font-size:12px; margin:0; padding:12px;'>"
+            "<p>(A 与 B 输出完全一致，无差异)</p></body></html>");
+        view.diffSummary->setText("无差异");
+    } else if (hunks.isEmpty()) {
+        view.diffView->setHtml(
+            "<html><body style='background:#1e1e1e; color:#888; font-family:monospace; "
+            "font-size:12px; margin:0; padding:12px;'>"
+            "<p>左侧或右侧无输出，无法对比。</p></body></html>");
+        view.diffSummary->setText("—");
+    } else {
+        view.diffView->setHtml(DiffEngine::toHtmlUnified(hunks));
+        view.diffSummary->setText(DiffEngine::summary(hunks));
+    }
+
+    view.viewStack->setCurrentIndex(1);
+}
+
+void OutputPanel::refreshSideDiff(CompareView &view)
+{
+    QString leftText  = view.leftOutput->toPlainText();
+    QString rightText = view.rightOutput->toPlainText();
+
+    view.cachedHunks = DiffEngine::compute(leftText, rightText);
+    const auto &hunks = view.cachedHunks;
+
+    if (hunks.isEmpty() && !leftText.isEmpty() && !rightText.isEmpty()) {
+        QString sameMsg =
+            "<html><body style='background:#1e1e1e; color:#888; font-family:monospace; "
+            "font-size:12px; margin:0; padding:12px;'>"
+            "<p>(A 与 B 输出完全一致)</p></body></html>";
+        view.sideLeftView->setHtml(sameMsg);
+        view.sideRightView->setHtml(sameMsg);
+        view.diffSummary->setText("无差异");
+    } else if (hunks.isEmpty()) {
+        QString emptyMsg =
+            "<html><body style='background:#1e1e1e; color:#888; font-family:monospace; "
+            "font-size:12px; margin:0; padding:12px;'>"
+            "<p>无法对比</p></body></html>";
+        view.sideLeftView->setHtml(emptyMsg);
+        view.sideRightView->setHtml(emptyMsg);
+        view.diffSummary->setText("—");
+    } else {
+        auto [leftHtml, rightHtml] = DiffEngine::toHtmlSideBySide(hunks);
+        view.sideLeftView->setHtml(leftHtml);
+        view.sideRightView->setHtml(rightHtml);
+        view.diffSummary->setText(DiffEngine::summary(hunks));
+    }
+
+    view.viewStack->setCurrentIndex(2);
 }
 
 QString OutputPanel::uniqueCompareTabLabel(const QString &base) const
@@ -247,16 +425,24 @@ void OutputPanel::clearCompare()
         v.rightOutput->clear();
         v.leftLabel->setText("A");
         v.rightLabel->setText("B");
+        v.diffView->clear();
+        v.sideLeftView->clear();
+        v.sideRightView->clear();
+        v.diffSummary->clear();
+        v.cachedHunks.clear();
     }
 }
 
 void OutputPanel::clearAll()
 {
-    // Tab mode
     for (auto *output : outputs_) output->clear();
-    // Compare mode
     for (auto &v : compareViews_) {
         v.leftOutput->clear();
         v.rightOutput->clear();
+        v.diffView->clear();
+        v.sideLeftView->clear();
+        v.sideRightView->clear();
+        v.diffSummary->clear();
+        v.cachedHunks.clear();
     }
 }

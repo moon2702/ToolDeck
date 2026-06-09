@@ -240,10 +240,11 @@ void MainWindow::runCompare(const ToolManifest &manifest)
     // Suppress default tab wiring for compare instances
     skipDefaultWiring_ = true;
 
-    auto *instA = manager_->startTool(manifest, leftArgs);
+    // Use distinct keys so both A and B can run concurrently for the same tool
+    auto *instA = manager_->startTool(manifest, leftArgs, manifest.name + "_A");
     if (instA) wireInstanceToView(instA, view.leftOutput);
 
-    auto *instB = manager_->startTool(manifest, rightArgs);
+    auto *instB = manager_->startTool(manifest, rightArgs, manifest.name + "_B");
     if (instB) wireInstanceToView(instB, view.rightOutput);
 
     skipDefaultWiring_ = false;

@@ -11,19 +11,29 @@ ToolManager::~ToolManager()
     stopAll();
 }
 
-ToolInstance *ToolManager::startTool(const ToolManifest &manifest, const QStringList &extraArgs)
+ToolInstance *ToolManager::startTool(const ToolManifest &manifest, const QStringList &extraArgs,
+                                      const QString &instanceKey)
 {
-    // Check if already running
-    if (instances_.contains(manifest.name)) {
-        auto *existing = instances_[manifest.name];
+    QString key = instanceKey.isEmpty() ? manifest.name : instanceKey;
+
+    // Check if already running (only for default key; custom keys skip dedup)
+    if (instanceKey.isEmpty() && instances_.contains(key)) {
+        auto *existing = instances_[key];
         if (existing->state() == ToolState::Running ||
             existing->state() == ToolState::Starting) {
-            qDebug() << "Tool" << manifest.name << "is already running";
+            qDebug() << "Tool" << key << "is already running";
             return existing;
         }
         // Clean up finished/stopped instance
         existing->deleteLater();
-        instances_.remove(manifest.name);
+        instances_.remove(key);
+    }
+
+    // Clean up previous instance if using a custom key
+    if (!instanceKey.isEmpty() && instances_.contains(key)) {
+        auto *old = instances_[key];
+        old->deleteLater();
+        instances_.remove(key);
     }
 
     // Check concurrency limit
@@ -35,7 +45,7 @@ ToolInstance *ToolManager::startTool(const ToolManifest &manifest, const QString
             }
         }
         if (running >= maxConcurrency_) {
-            qWarning() << "Max concurrency reached (" << maxConcurrency_ << "), cannot start" << manifest.name;
+            qWarning() << "Max concurrency reached (" << maxConcurrency_ << "), cannot start" << key;
             return nullptr;
         }
     }
@@ -43,15 +53,15 @@ ToolInstance *ToolManager::startTool(const ToolManifest &manifest, const QString
     auto *instance = new ToolInstance(manifest, this);
 
     // Clean up when finished (for oneshot tools)
-    connect(instance, &ToolInstance::finished, this, [this, name = manifest.name](int exitCode) {
+    connect(instance, &ToolInstance::finished, this, [this, key](int exitCode) {
         Q_UNUSED(exitCode);
-        qDebug() << "Tool" << name << "completed, cleaning up instance";
+        qDebug() << "Tool" << key << "completed, cleaning up instance";
     });
 
-    instances_[manifest.name] = instance;
+    instances_[key] = instance;
     instance->start(extraArgs);
 
-    emit instanceCreated(manifest.name, instance);
+    emit instanceCreated(key, instance);
     return instance;
 }
 

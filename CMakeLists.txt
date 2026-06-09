@@ -15,6 +15,7 @@ set(SOURCES
     src/core/tool_registry.cpp
     src/core/tool_instance.cpp
     src/core/tool_manager.cpp
+    src/core/diff_engine.cpp
     src/ui/main_window.cpp
     src/ui/sidebar_widget.cpp
     src/ui/dashboard_widget.cpp
@@ -29,6 +30,7 @@ set(HEADERS
     src/core/tool_registry.h
     src/core/tool_instance.h
     src/core/tool_manager.h
+    src/core/diff_engine.h
     src/ui/main_window.h
     src/ui/sidebar_widget.h
     src/ui/dashboard_widget.h
