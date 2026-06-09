@@ -331,6 +331,7 @@ void OutputPanel::refreshUnifiedDiff(CompareView &view)
 
     // Compute diff and cache for side-by-side switching
     view.cachedHunks = DiffEngine::compute(leftText, rightText);
+    DiffEngine::enrichInline(view.cachedHunks);
     const auto &hunks = view.cachedHunks;
 
     if (hunks.isEmpty() && !leftText.isEmpty() && !rightText.isEmpty()) {
@@ -359,6 +360,7 @@ void OutputPanel::refreshSideDiff(CompareView &view)
     QString rightText = view.rightOutput->toPlainText();
 
     view.cachedHunks = DiffEngine::compute(leftText, rightText);
+    DiffEngine::enrichInline(view.cachedHunks);
     const auto &hunks = view.cachedHunks;
 
     if (hunks.isEmpty() && !leftText.isEmpty() && !rightText.isEmpty()) {
