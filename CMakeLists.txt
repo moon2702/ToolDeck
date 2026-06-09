@@ -39,7 +39,7 @@ set(HEADERS
 )
 
 # ---- Executable ----
-add_executable(tooldeck ${SOURCES} ${HEADERS})
+add_executable(tooldeck WIN32 ${SOURCES} ${HEADERS})
 
 target_include_directories(tooldeck PRIVATE
     ${CMAKE_SOURCE_DIR}/src
