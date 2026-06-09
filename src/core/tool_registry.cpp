@@ -5,6 +5,7 @@
 #include <QStandardPaths>
 #include <QCoreApplication>
 #include <QSet>
+#include <QSysInfo>
 #include <QDebug>
 
 ToolRegistry::ToolRegistry(QObject *parent)
@@ -63,6 +64,13 @@ void ToolRegistry::reload()
         }
     }
     tools_ = deduped;
+
+    // Filter out tools incompatible with the current OS
+    QString currentOs = QSysInfo::productType().toLower();
+    tools_.erase(std::remove_if(tools_.begin(), tools_.end(),
+        [&](const ToolManifest &t) {
+            return !t.os.isEmpty() && !t.os.contains(currentOs);
+        }), tools_.end());
 
     qDebug() << "ToolRegistry: loaded" << tools_.size() << "tools from" << allPaths;
     emit toolsChanged();

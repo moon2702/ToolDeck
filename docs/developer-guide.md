@@ -61,6 +61,7 @@
 | `outputMode` | string | — | `"stream"` | `stream` / `result` / `status` |
 | `inputs` | object[] | — | `[]` | 参数输入定义（见第 5 节） |
 | `argTemplate` | string | — | `""` | 参数拼接模板（见第 7 节） |
+| `os` | string[] | — | `[]` | 兼容操作系统列表，不填=全平台（`windows`/`linux`/`macos`） |
 
 ---
 
@@ -99,6 +100,35 @@
 ```
 
 `args` 中的固定参数**始终拼接**到命令行。运行时通过 `inputs` 传入的参数通过 `argTemplate` 拼接（见第 5 节），最终命令行 = `args + argTemplate展开结果`。
+
+### `os` — 兼容操作系统
+
+```
+可选字段。声明工具兼容的操作系统列表。
+不填或空数组 = 全平台兼容。
+```
+
+```json
+// 仅 Windows（如使用 PowerShell 的工具）
+{ "os": ["windows"] }
+
+// 仅 Linux（如依赖 /proc 的工具）
+{ "os": ["linux"] }
+
+// 多平台
+{ "os": ["windows", "linux"] }
+
+// 全平台（默认）
+{ "os": [] }
+```
+
+| 合法值 | 对应平台 |
+|--------|---------|
+| `"windows"` | Microsoft Windows |
+| `"linux"` | Linux 发行版 |
+| `"macos"` | Apple macOS |
+
+ToolDeck 在启动和刷新时通过 `QSysInfo::productType()` 获取当前系统，仅加载 `os` 列表包含当前系统（或 `os` 为空）的工具。
 
 ---
 
@@ -367,6 +397,31 @@ inputs = [filepath, algorithm, verbose]
 
 双击行为：直接运行（仅一个可选字段）。传参：bash echo.sh "标准"
 
+### 8.5 Windows 限定工具 (win-sysinfo)
+
+```json
+{
+  "name": "win-sysinfo",
+  "displayName": "Windows 系统诊断",
+  "description": "收集 Windows 系统信息：OS 版本、CPU、内存、磁盘、网络配置",
+  "version": "1.0.0",
+  "category": "系统",
+  "icon": "utilities-system-monitor",
+  "os": ["windows"],
+  "command": "powershell",
+  "args": ["-ExecutionPolicy", "Bypass", "-File", "sysinfo.ps1"],
+  "runMode": "oneshot",
+  "outputMode": "stream",
+  "inputs": [
+    { "name": "section", "type": "choice", "label": "信息类别",
+      "choices": ["完整","系统概览","CPU","内存","磁盘","网络"], "default": "完整" }
+  ],
+  "argTemplate": "{section}"
+}
+```
+
+双击行为：直接运行（分为完整/概览/CPU/内存/磁盘/网络可选）。仅在 Windows 上显示。
+
 ---
 
 ## 9. 分类与图标速查
@@ -432,7 +487,7 @@ ToolDeck 按以下优先级扫描工具：
 
 | 现象 | 检查 |
 |------|------|
-| 侧边栏没有我的工具 | `manifest.json` 是否在 `~/.config/tooldeck/tools/<name>/` 下？JSON 语法是否合法？ |
+| 侧边栏没有我的工具 | `manifest.json` 是否在 `~/.config/tooldeck/tools/<name>/` 下？JSON 语法是否合法？`os` 字段是否包含当前系统？ |
 | 点击运行无反应 | `command` 路径是否正确？脚本是否有执行权限？ |
 | 弹窗不出现 | 检查 `inputs` 中是否有 `"required": true` 的字段 |
 | 参数没传进去 | 检查 `argTemplate` 占位符 `{name}` 是否与 `inputs[].name` 一致 |
@@ -455,4 +510,4 @@ bash script.sh arg1 arg2           # 模拟 ToolDeck 执行
 
 ---
 
-> 📚 完整参考实现：`examples/` 目录下的 `hello-world`, `default-echo`, `file-hash`, `port-check`
+> 📚 完整参考实现：`examples/` 目录下的 `hello-world`, `default-echo`, `file-hash`, `port-check`, `win-sysinfo`

@@ -3,6 +3,7 @@
   "displayName": "你好世界",
   "description": "一个最小示例工具，演示 ToolDeck 平台的基本工具结构",
   "version": "1.1.0",
+  "os": ["linux", "macos"],
   "category": "开发",
   "icon": "face-smile",
   "command": "bash",

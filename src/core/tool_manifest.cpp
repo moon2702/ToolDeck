@@ -69,6 +69,11 @@ std::optional<ToolManifest> ToolManifest::fromJson(const QByteArray &data, const
     // Parse arg template
     m.argTemplate = obj.value("argTemplate").toString();
 
+    // Parse os compatibility list (empty = all platforms)
+    QJsonArray osArray = obj.value("os").toArray();
+    for (const auto &v : osArray)
+        m.os.append(v.toString().toLower());
+
     return m;
 }
 

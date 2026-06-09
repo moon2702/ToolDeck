@@ -3,6 +3,7 @@
   "displayName": "端口检测",
   "description": "检测目标主机的指定端口是否开放，支持自定义超时",
   "version": "1.0.0",
+  "os": ["linux", "macos"],
   "category": "网络",
   "icon": "network-server",
   "command": "bash",

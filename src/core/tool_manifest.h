@@ -64,6 +64,7 @@ struct ToolManifest {
     QJsonObject inputSchema;    // Optional JSON Schema for tool inputs (legacy)
     QVector<ToolInputDef> inputs; // Structured input definitions for form generation
     QString argTemplate;         // Template string: "-a {algo} {verbose:--v} {file}"
+    QStringList os;              // Compatible OS list (empty = all platforms): ["windows","linux","macos"]
 
     /// Directory containing this manifest
     QString directoryPath;

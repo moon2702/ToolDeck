@@ -3,6 +3,7 @@
   "displayName": "Windows 系统诊断",
   "description": "收集 Windows 系统信息：OS 版本、CPU、内存、磁盘、网络配置",
   "version": "1.0.0",
+  "os": ["windows"],
   "category": "系统",
   "icon": "utilities-system-monitor",
   "command": "powershell",

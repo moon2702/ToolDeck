@@ -3,6 +3,7 @@
   "displayName": "系统信息",
   "description": "输出系统信息概览，包括日期、用户、内核版本、运行时间、内存使用",
   "version": "1.1.0",
+  "os": ["linux"],
   "category": "系统",
   "icon": "utilities-system-monitor",
   "command": "bash",

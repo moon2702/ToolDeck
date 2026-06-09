@@ -3,6 +3,7 @@
   "displayName": "文件哈希计算",
   "description": "使用 xxHash 算法快速计算文件哈希值，支持多种算法切换",
   "version": "1.0.0",
+  "os": ["linux"],
   "category": "系统",
   "icon": "accessories-calculator",
   "command": "./bin/filehash",
