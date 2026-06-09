@@ -66,7 +66,10 @@ void ToolRegistry::reload()
     tools_ = deduped;
 
     // Filter out tools incompatible with the current OS
-    QString currentOs = QSysInfo::productType().toLower();
+    // kernelType() returns "linux"/"winnt"/"darwin" — map to manifest convention
+    QString currentOs = QSysInfo::kernelType().toLower();
+    if (currentOs == "winnt") currentOs = "windows";
+    else if (currentOs == "darwin") currentOs = "macos";
     tools_.erase(std::remove_if(tools_.begin(), tools_.end(),
         [&](const ToolManifest &t) {
             return !t.os.isEmpty() && !t.os.contains(currentOs);
