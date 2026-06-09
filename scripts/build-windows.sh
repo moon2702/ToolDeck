@@ -62,11 +62,19 @@ if [ "$MODE" != "--cross" ]; then
 
     echo "[1/4] 检查 MSYS2 依赖..."
     MISSING=""
-    for cmd in cmake g++ strip windeployqt; do
+    for cmd in cmake g++ strip; do
         if ! command -v "$cmd" &>/dev/null; then
             MISSING="$MISSING $cmd"
         fi
     done
+    # windeployqt may be named windeployqt6 or windeployqt
+    if command -v windeployqt6 &>/dev/null; then
+        WINDEPLOYQT="windeployqt6"
+    elif command -v windeployqt &>/dev/null; then
+        WINDEPLOYQT="windeployqt"
+    else
+        MISSING="$MISSING windeployqt"
+    fi
     if [ -n "$MISSING" ]; then
         echo "  ✗ 缺少: $MISSING"
         echo "  请安装: pacman -S mingw-w64-x86_64-{qt6-base,cmake,gcc,toolchain}"
@@ -92,7 +100,7 @@ if [ "$MODE" != "--cross" ]; then
     cp "$BUILD_DIR/build/tooldeck.exe" "$DIST_DIR/bin/"
 
     # windeployqt 自动收集所需 Qt DLL
-    windeployqt "$DIST_DIR/bin/tooldeck.exe" --no-translations --no-compiler-runtime 2>&1 | tail -3
+    $WINDEPLOYQT "$DIST_DIR/bin/tooldeck.exe" --no-translations --no-compiler-runtime 2>&1 | tail -3
 
     echo "  ✓ Qt DLL 收集完成"
 

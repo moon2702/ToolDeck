@@ -1,0 +1,23 @@
+{
+  "name": "win-sysinfo",
+  "displayName": "Windows 系统诊断",
+  "description": "收集 Windows 系统信息：OS 版本、CPU、内存、磁盘、网络配置",
+  "version": "1.0.0",
+  "category": "系统",
+  "icon": "utilities-system-monitor",
+  "command": "powershell",
+  "args": ["-ExecutionPolicy", "Bypass", "-File", "sysinfo.ps1"],
+  "runMode": "oneshot",
+  "outputMode": "stream",
+  "inputs": [
+    {
+      "name": "section",
+      "type": "choice",
+      "label": "信息类别",
+      "description": "选择要收集的系统信息类别",
+      "choices": ["完整", "系统概览", "CPU", "内存", "磁盘", "网络"],
+      "default": "完整"
+    }
+  ],
+  "argTemplate": "{section}"
+}
