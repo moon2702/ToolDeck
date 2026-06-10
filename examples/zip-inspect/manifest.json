@@ -1,0 +1,47 @@
+{
+  "name": "zip-inspect",
+  "displayName": "ZIP 包浏览提取",
+  "description": "列出 ZIP 包内容清单；按需提取指定文件，无需整体解压",
+  "version": "1.0.0",
+  "os": ["linux", "macos"],
+  "category": "数据处理",
+  "icon": "package-x-generic",
+  "command": "bash",
+  "args": ["zip-inspect.sh"],
+  "runMode": "oneshot",
+  "outputMode": "stream",
+  "inputs": [
+    {
+      "name": "zipfile",
+      "type": "file",
+      "label": "ZIP 文件",
+      "description": "选择要浏览或提取的 ZIP 文件",
+      "required": true
+    },
+    {
+      "name": "mode",
+      "type": "choice",
+      "label": "操作模式",
+      "description": "列出全部内容清单，或按路径提取指定文件",
+      "choices": ["列出清单", "提取文件"],
+      "default": "列出清单"
+    },
+    {
+      "name": "pattern",
+      "type": "text",
+      "label": "提取目标",
+      "description": "ZIP 内的文件路径，支持通配符如 '*.txt' 或 'subdir/*'（仅提取模式需要）",
+      "required": false,
+      "default": ""
+    },
+    {
+      "name": "outdir",
+      "type": "dir",
+      "label": "输出目录",
+      "description": "提取文件的保存目录（仅提取模式需要）",
+      "required": false,
+      "default": "."
+    }
+  ],
+  "argTemplate": "{zipfile} {mode} {pattern} {outdir}"
+}

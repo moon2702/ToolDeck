@@ -151,9 +151,10 @@ QVector<ToolInputDef> ToolManifest::parseInputs(const QJsonArray &arr)
 
 QStringList ToolManifest::buildArgs(const QHash<QString, QString> &inputValues) const
 {
-    // If no arg template, just append all values in input definition order
+    // If no arg template, just append all values in input definition order.
+    // (Fixed manifest.args are prepended by ToolInstance::start(), not duplicated here.)
     if (argTemplate.isEmpty()) {
-        QStringList result = args;
+        QStringList result;
         for (const auto &def : inputs) {
             QString val = inputValues.value(def.name);
             if (!val.isEmpty()) {
@@ -220,8 +221,8 @@ QStringList ToolManifest::buildArgs(const QHash<QString, QString> &inputValues) 
     // Clean up extra whitespace
     expanded = expanded.simplified();
 
-    // Split into args list
-    QStringList result = args;
+    // Split into args list (fixed manifest.args prepended by ToolInstance::start())
+    QStringList result;
     if (!expanded.isEmpty()) {
         // Split by whitespace, respecting that we already processed the template
         result.append(expanded.split(' ', Qt::SkipEmptyParts));
