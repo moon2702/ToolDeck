@@ -1,0 +1,37 @@
+{
+  "name": "bool-flags",
+  "displayName": "布尔标志测试",
+  "description": "测试全部三种 Bool 修饰符语法: --flag / +flag / -flag",
+  "version": "1.0.0",
+  "os": ["linux", "macos"],
+  "category": "开发",
+  "icon": "utilities-terminal",
+  "command": "bash",
+  "args": ["flags.sh"],
+  "runMode": "oneshot",
+  "outputMode": "stream",
+  "inputs": [
+    {
+      "name": "verbose",
+      "type": "bool",
+      "label": "详细模式 (--verbose)",
+      "description": "true 时输出 --verbose",
+      "default": false
+    },
+    {
+      "name": "debug",
+      "type": "bool",
+      "label": "调试模式 (+d)",
+      "description": "true 时输出 +d",
+      "default": false
+    },
+    {
+      "name": "quiet",
+      "type": "bool",
+      "label": "静默模式 (-q)",
+      "description": "true 时输出 -q",
+      "default": false
+    }
+  ],
+  "argTemplate": "{verbose:--verbose} {debug:+d} {quiet:-q}"
+}

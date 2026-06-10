@@ -1,0 +1,44 @@
+{
+  "name": "num-calc",
+  "displayName": "浮点计算器",
+  "description": "浮点数四则运算，展示 Number(浮点)和 Int(整数)输入类型及 min/max/decimals 约束",
+  "version": "1.0.0",
+  "os": ["linux", "macos"],
+  "category": "数据处理",
+  "icon": "accessories-calculator",
+  "command": "bash",
+  "args": ["calc.sh"],
+  "runMode": "oneshot",
+  "outputMode": "stream",
+  "inputs": [
+    {
+      "name": "left",
+      "type": "number",
+      "label": "左操作数",
+      "description": "第一个数字 (支持小数)",
+      "required": true,
+      "min": -999999.0,
+      "max": 999999.0,
+      "decimals": 4,
+      "default": "3.14"
+    },
+    {
+      "name": "op",
+      "type": "choice",
+      "label": "运算符",
+      "choices": ["加", "减", "乘", "除"],
+      "default": "加"
+    },
+    {
+      "name": "right",
+      "type": "int",
+      "label": "右操作数",
+      "description": "第二个数字 (仅整数)",
+      "required": true,
+      "min": -99999,
+      "max": 99999,
+      "default": "2"
+    }
+  ],
+  "argTemplate": "{left} {op} {right}"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "clock-watch",
+  "displayName": "系统监控 (daemon)",
+  "description": "daemon 模式持续运行，每 2 秒输出时间戳和系统负载，需手动停止",
+  "version": "1.0.0",
+  "os": ["linux", "macos"],
+  "category": "系统",
+  "icon": "utilities-system-monitor",
+  "command": "bash",
+  "args": ["watch.sh"],
+  "runMode": "daemon",
+  "outputMode": "stream",
+  "inputs": []
+}

@@ -17,6 +17,7 @@
 9. [分类与图标速查](#9-分类与图标速查)
 10. [工具发现路径](#10-工具发现路径)
 11. [故障排查](#11-故障排查)
+12. [测试](#12-测试)
 
 ---
 
@@ -517,6 +518,7 @@ ToolDeck 按以下优先级扫描工具：
 | 点击运行无反应 | `command` 路径是否正确？脚本是否有执行权限？ |
 | 弹窗不出现 | 检查 `inputs` 中是否有 `"required": true` 的字段 |
 | 参数没传进去 | 检查 `argTemplate` 占位符 `{name}` 是否与 `inputs[].name` 一致 |
+| 脚本名/参数出现两次 | `args` 字段由平台负责拼接，无需在 `argTemplate` 中重复（固定参数写 `args`，动态参数写 `argTemplate`） |
 | 输出乱码 | 脚本文件编码应为 UTF-8 |
 | daemon 立即退出 | 脚本需要死循环（`while true`），否则执行完就退出 |
 
@@ -536,4 +538,59 @@ bash script.sh arg1 arg2           # 模拟 ToolDeck 执行
 
 ---
 
-> 📚 完整参考实现：`examples/` 目录下的 `hello-world`, `default-echo`, `file-hash`, `port-check`, `win-sysinfo`
+---
+
+## 12. 测试
+
+### 全量自动化测试
+
+项目提供 `scripts/test-tools.sh` 一键运行全部测试：
+
+```bash
+./scripts/test-tools.sh
+```
+
+测试脚本模拟 ToolDeck 的完整执行链路（manifest 解析 → `buildArgs()` → 参数拼接 → 脚本执行），验证：
+
+- **参数无重复**：检查 `args` 中脚本名只出现一次
+- **模板展开正确**：`argTemplate` 各修饰符（`--flag`/`+flag`/`-flag`）行为正确
+- **空值过滤**：空输入不产生多余参数
+- **边界情况**：全 false bool、空 argTemplate、全 required 等
+
+### 工具覆盖矩阵
+
+15 个示例工具覆盖了 manifest.json 的全部配置组合：
+
+| 工具 | 覆盖特性 |
+|------|---------|
+| `hello-world` | text + choice, 可选参数 |
+| `echo-demo` | choice + 默认值 |
+| `file-hash` | file 必填, bool `--flag`, args 空 |
+| `port-check` | int, 多 required, text |
+| `zip-inspect` | dir 可选, file 必填, choice |
+| `num-calc` | **number 浮点**, int, choice |
+| `bool-flags` | **`+flag` / `--flag` / `-flag`** 三种修饰符 |
+| `all-needed` | **全部 required**, text+file+dir+choice |
+| `clock-watch` | **daemon** 模式 |
+| `fmt-json` | **outputMode=result** |
+| `quick-ok` | **outputMode=status** |
+| `no-tmpl` | **空 argTemplate** |
+| `anywhere` | **os 为空**（全平台） |
+| `pick-dir` | **dir 必填** |
+| `win-sysinfo` | Windows 限定, powershell |
+
+### 手动验证单个工具
+
+```bash
+# 切换到工具目录，模拟 ToolDeck 的执行参数
+cd examples/num-calc/
+bash calc.sh 3.14 乘 2
+
+# 检验 args 拼接
+cd examples/bool-flags/
+bash flags.sh --verbose +d
+```
+
+---
+
+> 📚 完整参考实现：`examples/` 目录下 15 个覆盖全部配置组合的示例工具

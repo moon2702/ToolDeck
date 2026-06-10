@@ -123,13 +123,24 @@ ToolDeck/
 ├── README.md
 ├── docs/
 │   └── developer-guide.md      ← manifest.json 配置手册
-├── examples/                   ← 内置示例工具
+├── examples/                   ← 15 个内置工具 (覆盖全部配置组合)
 │   ├── default-echo/           ← 系统信息 (可选参数)
-│   ├── file-hash/              ← 文件哈希 (必填路径)
+│   ├── file-hash/              ← 文件哈希 (必填路径 + bool flag)
 │   ├── hello-world/            ← 最小示例 (可选参数)
-│   ├── port-check/             ← 端口检测 (必填主机+端口)
+│   ├── port-check/             ← 端口检测 (必填主机+端口 + int)
+│   ├── zip-inspect/            ← ZIP 包浏览提取 (file + dir + choice)
+│   ├── num-calc/               ← 浮点计算器 (number + int)
+│   ├── bool-flags/             ← 布尔标志测试 (--flag / +flag / -flag)
+│   ├── all-needed/             ← 全部必填 (text + file + dir + choice)
+│   ├── clock-watch/            ← 系统监控 (daemon 模式)
+│   ├── fmt-json/               ← JSON 格式化 (outputMode=result)
+│   ├── quick-ok/               ← 状态检测 (outputMode=status)
+│   ├── no-tmpl/                ← 无模板参数 (空 argTemplate)
+│   ├── anywhere/               ← 全平台系统信息 (os 为空)
+│   ├── pick-dir/               ← 目录统计 (dir 必填)
 │   └── win-sysinfo/            ← Windows 系统诊断 (PowerShell)
 ├── scripts/
+│   ├── test-tools.sh           ← 全量测试脚本 (19 项)
 │   ├── build-appimage.sh       ← Linux AppImage 构建
 │   ├── build-windows.sh        ← Windows MSYS2 构建
 │   └── toolchain-mingw.cmake   ← mingw 交叉编译工具链

@@ -1,0 +1,26 @@
+{
+  "name": "quick-ok",
+  "displayName": "状态检测 (status)",
+  "description": "outputMode=status 模式，不显示输出，仅仪表盘状态灯指示成功/失败",
+  "version": "1.0.0",
+  "os": ["linux", "macos"],
+  "category": "开发",
+  "icon": "face-smile",
+  "command": "bash",
+  "args": ["ok.sh"],
+  "runMode": "oneshot",
+  "outputMode": "status",
+  "inputs": [
+    {
+      "name": "code",
+      "type": "int",
+      "label": "退出码",
+      "description": "0=成功 非0=失败",
+      "required": true,
+      "min": 0,
+      "max": 255,
+      "default": "0"
+    }
+  ],
+  "argTemplate": "{code}"
+}

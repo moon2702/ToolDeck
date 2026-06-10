@@ -1,0 +1,31 @@
+{
+  "name": "fmt-json",
+  "displayName": "JSON 格式化 (result)",
+  "description": "outputMode=result 模式，进程结束后一次性展示输出",
+  "version": "1.0.0",
+  "os": ["linux", "macos"],
+  "category": "数据处理",
+  "icon": "utilities-terminal",
+  "command": "bash",
+  "args": ["fmt.sh"],
+  "runMode": "oneshot",
+  "outputMode": "result",
+  "inputs": [
+    {
+      "name": "text",
+      "type": "text",
+      "label": "文本内容",
+      "description": "要包裹成 JSON 的文本",
+      "required": true,
+      "default": "hello tooldeck"
+    },
+    {
+      "name": "indent",
+      "type": "choice",
+      "label": "缩进风格",
+      "choices": ["缩进", "紧凑"],
+      "default": "缩进"
+    }
+  ],
+  "argTemplate": "{text} {indent}"
+}

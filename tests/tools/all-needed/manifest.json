@@ -1,0 +1,44 @@
+{
+  "name": "all-needed",
+  "displayName": "全部必填",
+  "description": "所有输入字段都标注 required:true，混合 text/file/dir/choice 类型",
+  "version": "1.0.0",
+  "os": ["linux", "macos"],
+  "category": "开发",
+  "icon": "document-edit",
+  "command": "bash",
+  "args": ["needed.sh"],
+  "runMode": "oneshot",
+  "outputMode": "stream",
+  "inputs": [
+    {
+      "name": "name",
+      "type": "text",
+      "label": "配置名称",
+      "description": "给这次操作起个名字",
+      "required": true
+    },
+    {
+      "name": "source",
+      "type": "file",
+      "label": "源文件",
+      "description": "选择输入文件",
+      "required": true
+    },
+    {
+      "name": "outdir",
+      "type": "dir",
+      "label": "输出目录",
+      "description": "选择输出目录",
+      "required": true
+    },
+    {
+      "name": "format",
+      "type": "choice",
+      "label": "输出格式",
+      "choices": ["JSON", "YAML", "TEXT"],
+      "required": true
+    }
+  ],
+  "argTemplate": "{name} {source} {outdir} {format}"
+}
