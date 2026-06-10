@@ -102,7 +102,64 @@ if [ "$MODE" != "--cross" ]; then
     # windeployqt 自动收集所需 Qt DLL
     $WINDEPLOYQT "$DIST_DIR/bin/tooldeck.exe" --no-translations --no-compiler-runtime 2>&1 | tail -3
 
-    echo "  ✓ Qt DLL 收集完成"
+    # 自动递归收集 MinGW/GCC 运行时 DLL
+    echo "  补充运行时 DLL..."
+    MINGW_BIN="/mingw64/bin"
+
+    # Windows 系统 DLL（无需打包，所有 Windows 自带）
+    is_system_dll() {
+        case "${1,,}" in
+            kernel32.dll|msvcrt.dll|ntdll.dll|user32.dll|gdi32.dll|advapi32.dll|\
+            shell32.dll|ole32.dll|oleaut32.dll|ws2_32.dll|version.dll|winmm.dll|\
+            netapi32.dll|iphlpapi.dll|dnsapi.dll|crypt32.dll|bcrypt.dll|ncrypt.dll|\
+            userenv.dll|mpr.dll|secur32.dll|setupapi.dll|wintrust.dll|cfgmgr32.dll|\
+            imm32.dll|comdlg32.dll|rpcrt4.dll|shlwapi.dll|uxtheme.dll|dwmapi.dll|\
+            opengl32.dll|winspool.dll|wtsapi32.dll|powrprof.dll|wldap32.dll|\
+            netutils.dll|logoncli.dll|samcli.dll|winsta.dll|winhttp.dll|dxgi.dll|\
+            d3d11.dll|d3d12.dll|dwrite.dll|cryptsp.dll|usp10.dll|authz.dll)
+                return 0 ;;
+            api-ms-win-*) return 0 ;;
+            ext-ms-win-*) return 0 ;;
+            *)            return 1 ;;
+        esac
+    }
+
+    # 递归扫描：找出 bin/ 中所有 exe/dll 缺失的非系统 DLL，从 MINGW_BIN 拷贝
+    collect_deps() {
+        local scanned=()
+        while true; do
+            local missing=()
+            for f in "$DIST_DIR/bin"/*.exe "$DIST_DIR/bin"/*.dll; do
+                [ -f "$f" ] || continue
+                while read -r dll; do
+                    dll=$(echo "$dll" | tr -d '\r')
+                    if is_system_dll "$dll"; then continue; fi
+                    local target="$DIST_DIR/bin/$dll"
+                    if [ ! -f "$target" ] && [ ! -f "$MINGW_BIN/$dll" ]; then
+                        # DLL 可能来自 Qt 插件子目录（如 platforms/qwindows.dll 从 windeployqt 已部署）
+                        # 忽略扫描过程中出现在子目录的依赖
+                        true
+                    elif [ ! -f "$target" ] && [ -f "$MINGW_BIN/$dll" ]; then
+                        missing+=("$dll")
+                    fi
+                done < <(objdump -p "$f" 2>/dev/null | grep "DLL Name" | sed 's/.*DLL Name: //')
+            done
+
+            if [ ${#missing[@]} -eq 0 ]; then
+                break
+            fi
+
+            for dll in "${missing[@]}"; do
+                if ! echo "${scanned[@]}" | grep -qw "$dll"; then
+                    cp "$MINGW_BIN/$dll" "$DIST_DIR/bin/"
+                    scanned+=("$dll")
+                fi
+            done
+        done
+        echo "    已收集 ${#scanned[@]} 个运行时 DLL"
+    }
+
+    collect_deps
 
     # ---- 4. 打包 ----
     echo "[4/4] 打包..."
